@@ -40,7 +40,7 @@ public class GitRepoSizeEstimatorTest {
         String tool = repoSizeEstimator.getGitTool();
 
         // The class should make no recommendation since it can't find a .git cached directory
-        assertThat(tool.equals("NONE"), is(true));
+        assertThat(tool, is("NONE"));
     }
 
     /*

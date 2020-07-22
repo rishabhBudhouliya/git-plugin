@@ -14,7 +14,8 @@ import org.jenkinsci.plugins.gitclient.GitClient;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Objects;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * A class which allows {@link AbstractGitSCMSource} to estimate the size of a repository from a distance
@@ -25,7 +26,10 @@ public class GitRepoSizeEstimator {
     private long sizeOfRepo = 0L;
     private String implementation;
     private String gitTool;
-    public static final int SIZE_TO_SWITCH = 50000;
+    public static final int SIZE_TO_SWITCH_MB = 5;
+    public static final int SIZE_TO_SWITCH_KB = 5000; // 5 MiB
+    public static final int SIZE_TO_SWITCH_B = 5000000; // 5 MiB
+    private SizeType type = SizeType.KiloByte; // By default keep it bytes
 
     /**
      * Instantiate class using {@link AbstractGitSCMSource}. It looks for a cached .git directory first, calculates the
@@ -122,7 +126,7 @@ public class GitRepoSizeEstimator {
      */
     private String determineSwitchOnSize(Long sizeOfRepo) {
         if (sizeOfRepo != 0L) {
-            if (sizeOfRepo >= SIZE_TO_SWITCH) {
+            if (sizeOfRepo >= SIZE_TO_SWITCH ) {
                 return "git";
             } else {
                 return "jgit";
@@ -137,25 +141,50 @@ public class GitRepoSizeEstimator {
      */
     public static abstract class RepositorySizeAPI implements ExtensionPoint {
 
-        public abstract Long getSizeOfRepository(String remote);
+        public abstract boolean acceptsRemote(String remote);
+
+        public abstract Size getSizeOfRepository(String remote);
 
         public static ExtensionList<RepositorySizeAPI> all() {
-            Jenkins jenkins = Jenkins.getInstanceOrNull();
-            if (jenkins == null) {
-                return null;
+            return Jenkins.get().getExtensionList(RepositorySizeAPI.class);
+        }
+
+        class Size {
+
+            private long size = 0;
+            private SizeType type;
+
+            public void setNumericalSize(long size) {
+                this.size = size;
             }
-            return jenkins.getExtensionList(RepositorySizeAPI.class);
+
+            public void setTypeOfSize(SizeType type) {
+                this.type = type;
+            }
+
+            public long getNumericalSize() {
+                return size;
+            }
+
+            public SizeType getType() {
+                return type;
+            }
         }
     }
 
     private boolean setSizeFromAPI(String repoUrl) {
-        for (RepositorySizeAPI r: Objects.requireNonNull(RepositorySizeAPI.all())) {
-            if (r != null) {
-                sizeOfRepo = r.getSizeOfRepository(repoUrl);
-                return true;
-            }
+        List<RepositorySizeAPI> acceptedRepository = RepositorySizeAPI.all()
+                .stream()
+                .filter(r -> r.acceptsRemote(repoUrl))
+                .collect(Collectors.toList());
+
+        if (acceptedRepository.size() == 1) {
+            sizeOfRepo = acceptedRepository.get(0).getSizeOfRepository(repoUrl).getNumericalSize();
+            type = acceptedRepository.get(0).getSizeOfRepository(repoUrl).getType();
+            return true;
+        } else {
+            return false;
         }
-        return false;
     }
 
     /**
@@ -164,5 +193,23 @@ public class GitRepoSizeEstimator {
      */
     public String getGitTool() {
         return gitTool;
+    }
+
+    /**
+     * The potential types of reference supported by a {@link GitRepoSizeEstimator}.
+     */
+    public enum SizeType {
+        /**
+         * Repository Size in Bytes.
+         */
+        Byte,
+        /**
+         * Repository Size in KiB.
+         */
+        KiloByte,
+        /**
+         * Repository Size in MiB
+         */
+        MegaByte;
     }
 }
