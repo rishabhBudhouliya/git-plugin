@@ -454,7 +454,7 @@ public class GitToolChooserTest {
         @Override
         public Long getSizeOfRepository(String remote, Item context, String credentialsId) {
             // from remote, remove .git and https://github.com
-            return (long) 10000;
+            return (long) 100000;
         }
     }
 

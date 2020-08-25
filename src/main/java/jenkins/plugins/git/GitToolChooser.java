@@ -34,7 +34,7 @@ public class GitToolChooser {
     /**
      * Size to switch implementation in KiB
      */
-    private static final int SIZE_TO_SWITCH = 5000;
+    private static final int SIZE_TO_SWITCH = 50000;
     private boolean JGIT_SUPPORTED = false;
 
     /**
